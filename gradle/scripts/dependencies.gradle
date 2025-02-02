@@ -1,0 +1,91 @@
+apply from: 'gradle/scripts/helpers.gradle'
+
+repositories {
+    // Other repositories described by default:
+    // CleanroomMC: https://maven.cleanroommc.com
+    exclusiveContent {
+        forRepository {
+            maven {
+                name 'CurseMaven'
+                url 'https://cursemaven.com'
+            }
+        }
+        filter {
+            includeGroup 'curse.maven'
+        }
+    }
+    exclusiveContent {
+        forRepository {
+            maven {
+                name 'Modrinth'
+                url 'https://api.modrinth.com/maven'
+            }
+        }
+        filter {
+            includeGroup 'maven.modrinth'
+        }
+    }
+    mavenLocal() // Must be last for caching to work
+}
+
+dependencies {
+    // Include StripLatestForgeRequirements by default for the dev env, saves everyone a hassle
+    runtimeOnly 'com.cleanroommc:strip-latest-forge-requirements:1.0'
+    // Include OSXNarratorBlocker by default for the dev env, for M1+ Macs
+    runtimeOnly 'com.cleanroommc:osxnarratorblocker:1.0'
+
+    /*
+    These only compile on build and not runtime, the client doesn't check for these dependencies in theory.
+    In the ideal world we would need to check if these mods/dependencies exist in the runtime environment and promptly load them--
+    which isn't something I know how to implement sadly, though I elaborate more about this below.
+    */
+    compileOnly rfg.deobf("curse.maven:codechicken-lib-1-8-242818:2779848")
+    compileOnly rfg.deobf("curse.maven:censoredasm-460609:4800875")
+    compileOnly rfg.deobf("curse.maven:fermiumasm-971247:5116326")
+
+    /*
+    Old code was this:
+
+    dependencies {
+        [...]
+
+        // mod compat
+        implementation rfg.deobf("curse.maven:codechicken-lib-1-8-242818:2779848")
+        implementation rfg.deobf("curse.maven:censoredasm-460609:4800875")
+        implementation rfg.deobf("curse.maven:fermiumasm-971247:5116326")
+
+        [...]
+     }
+
+     A more in-depth explanation;
+
+     When building normally (running the "build" gradle task) and then running the game externally (through your average launcher) this is fine,
+     but when trying to run "runClient" (run client gradle task) on the dev environment (a.k.a: dev env) it gracefully exits,
+     I pinpointed this to the client (in our dev env) hard depending on the mods when using "implementation" to add them to the "dependencies" block.
+
+     To fix this you should check if in our "runClient" task (inside "../build.gradle") we have the required dependencies
+     (e.g: if statements to check run/mods?),
+     if present load the deps (we would use "runtimeOnly"*), else don't load them!
+
+     For the build task I suppose you would also want to do the same,
+     so if present load the deps (we would use "compileOnly"*), else don't load them!
+
+     * I don't know if that would be the proper way to add it, I'm simply theorizing :p
+
+     Pseudo code:
+
+     runClient {
+         if (haveDependencies)
+         {
+            runtimeOnly (...) // you may also want to deobfuscate (deobf) using retrofuturagradle (rtg), but no idea how that works.
+         }
+     }
+
+     build {
+         if (haveDependencies)
+         {
+            compileOnly (...) // you may also want to deobf using rtg, but no idea how that works again.
+         }
+     }
+     */
+}
